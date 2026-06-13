@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Peta Kawasan Jl. Kapten Piere Tendean — Wirobrajan</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f5f5f5; color: #222; }
+
+    header {
+      background: #1d4ed8;
+      color: #fff;
+      padding: 18px 24px 14px;
+    }
+    header h1 { font-size: 18px; font-weight: 600; margin-bottom: 2px; }
+    header p { font-size: 13px; opacity: 0.85; }
+
+    .container { max-width: 960px; margin: 0 auto; padding: 16px; }
+
+    .controls {
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+    .controls label { font-size: 13px; color: #555; font-weight: 500; }
+    .filter-btn {
+      font-size: 13px;
+      padding: 5px 14px;
+      border-radius: 99px;
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      color: #334155;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .filter-btn:hover { background: #f1f5f9; }
+    .filter-btn.active { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
+    .filter-btn.active-red { background: #dc2626; color: #fff; border-color: #dc2626; }
+
+    .legend {
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+      margin-left: auto;
+      font-size: 13px;
+      color: #555;
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+    .dot-toko { background: #2563eb; border: 1.5px solid #1d4ed8; }
+    .dot-infra { background: #dc2626; border: 1.5px solid #991b1b; }
+
+    #count { font-size: 12px; color: #888; width: 100%; }
+
+    #map {
+      width: 100%;
+      height: 520px;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      z-index: 0;
+    }
+
+    .sidebar {
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      padding: 14px 16px;
+      margin-top: 12px;
+    }
+    .sidebar h2 { font-size: 14px; font-weight: 600; margin-bottom: 10px; color: #1e293b; }
+    .list-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 6px;
+    }
+    .list-item {
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      cursor: pointer;
+      transition: background 0.1s;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .list-item:hover { background: #eff6ff; border-color: #93c5fd; }
+    .list-item .dot { flex-shrink: 0; }
+    .list-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    footer { text-align: center; font-size: 12px; color: #aaa; padding: 16px; }
+
+    @media (max-width: 600px) {
+      header h1 { font-size: 15px; }
+      #map { height: 380px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Peta Studi Kasus — Kawasan Jl. Kapten Piere Tendean, Wirobrajan</h1>
+  <p>Yogyakarta &nbsp;|&nbsp; Klik titik di peta untuk detail lokasi</p>
+</header>
+
+<div class="container">
+
+  <div class="controls">
+    <label>Filter:</label>
+    <button class="filter-btn active" onclick="filterMap('all',this)">Semua</button>
+    <button class="filter-btn" onclick="filterMap('toko',this)">Toko &amp; Usaha</button>
+    <button class="filter-btn" onclick="filterMap('infra',this)">⚠️ Infrastruktur Bermasalah</button>
+    <div class="legend">
+      <div class="legend-item"><span class="dot dot-toko"></span> Toko / Usaha</div>
+      <div class="legend-item"><span class="dot dot-infra"></span> Infrastruktur bermasalah</div>
+    </div>
+    <div id="count"></div>
+  </div>
+
+  <div id="map"></div>
+
+  <div class="sidebar">
+    <h2>Daftar Lokasi</h2>
+    <div class="list-grid" id="list"></div>
+  </div>
+
+</div>
+
+<footer>Studi Kasus Kawasan Jalan Kapten Piere Tendean, Wirobrajan &mdash; Data Koordinat Lapangan</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const tokoData = [
+  {nama:"Olive",lat:-7.804050724549969,lng:110.35087517078239,cat:"toko"},
+  {nama:"Sate padang",lat:-7.804818887136129,lng:110.35084263407339,cat:"toko"},
+  {nama:"Bolu susu",lat:-7.802817257215101,lng:110.35124547799535,cat:"toko"},
+  {nama:"Cilok gajahan",lat:-7.803449861675681,lng:110.35120874143799,cat:"toko"},
+  {nama:"Ayam bara",lat:-7.8034836338804565,lng:110.35141791700859,cat:"toko"},
+  {nama:"RM Okeiki",lat:-7.8035820285619035,lng:110.3513484426637,cat:"toko"},
+  {nama:"Jogja Bakery",lat:-7.802407609649166,lng:110.35143152499417,cat:"toko"},
+  {nama:"Preksu",lat:-7.801805437348263,lng:110.35127383210254,cat:"toko"},
+  {nama:"Tahu tek",lat:-7.801690653660678,lng:110.35177027742311,cat:"toko"},
+  {nama:"Mie menteng",lat:-7.802021287299211,lng:110.3517067880805,cat:"toko"},
+  {nama:"RM Mbak Nami",lat:-7.801615316261735,lng:110.35180320313982,cat:"toko"},
+  {nama:"Bakmi Yahya",lat:-7.801848273558684,lng:110.35175267276622,cat:"toko"},
+  {nama:"Simpang raya restoran",lat:-7.802885804360504,lng:110.351243805324,cat:"toko"},
+  {nama:"Xopi kapten Tandean",lat:-7.803007379224181,lng:110.35126727465388,cat:"toko"},
+  {nama:"Warmindo",lat:-7.802994092357194,lng:110.35150397959345,cat:"toko"},
+  {nama:"Bakmi jawa mas didit",lat:-7.803142905260903,lng:110.35119284335443,cat:"toko"},
+  {nama:"Soto ayam",lat:-7.803902348838462,lng:110.3510642998042,cat:"toko"},
+  {nama:"Martabak javanta",lat:-7.804039518951632,lng:110.3510462820245,cat:"toko"},
+  {nama:"Jatinangor house",lat:-7.804171991410881,lng:110.35122266657996,cat:"toko"},
+  {nama:"Indomaret",lat:-7.804386539913635,lng:110.35095588446572,cat:"toko"},
+  {nama:"Pempek naiba",lat:-7.804734456717565,lng:110.3511005084041,cat:"toko"},
+  {nama:"Belikopi",lat:-7.8049054492467125,lng:110.35108343893106,cat:"toko"},
+  {nama:"Angkringan",lat:-7.80520609528471,lng:110.35100947121217,cat:"toko"},
+  {nama:"Penyetan ayam",lat:-7.805315079422022,lng:110.35099998817039,cat:"toko"},
+  {nama:"Bakmi jawa",lat:-7.805385543286314,lng:110.35097912548102,cat:"toko"},
+  {nama:"NSA bakery",lat:-7.805940960052798,lng:110.35092450838334,cat:"toko"},
+  {nama:"Mixue",lat:-7.806252879540833,lng:110.35040863097207,cat:"toko"},
+  {nama:"King Jaket",lat:-7.8014630105431895,lng:110.35183791335362,cat:"toko"},
+  {nama:"Hotel Andika",lat:-7.80182681746608,lng:110.3515148525215,cat:"toko"},
+  {nama:"Konveksi",lat:-7.8019669725095655,lng:110.35145465484999,cat:"toko"},
+  {nama:"Salon",lat:-7.80205842116211,lng:110.35146268120602,cat:"toko"},
+  {nama:"Foto kopi",lat:-7.802185654039735,lng:110.35138944070657,cat:"toko"},
+  {nama:"Toko elektronik",lat:-7.802494790008474,lng:110.35164628409905,cat:"toko"},
+  {nama:"Bengkel",lat:-7.802646872895932,lng:110.35128008160143,cat:"toko"},
+  {nama:"Toko sovenir",lat:-7.803246257842221,lng:110.35115466978509,cat:"toko"},
+  {nama:"Toko olahraga",lat:-7.803204509665398,lng:110.35146669437624,cat:"toko"},
+  {nama:"Toko HP",lat:-7.803533524952916,lng:110.35134027926708,cat:"toko"},
+  {nama:"Toko katalog",lat:-7.8035852131307255,lng:110.35110651164496,cat:"toko"},
+  {nama:"Toko rokok elektrik",lat:-7.80365876937592,lng:110.35106537656976,cat:"toko"},
+  {nama:"Toko pakaian",lat:-7.8038917759378545,lng:110.35128405438046,cat:"toko"},
+  {nama:"Toko rokok elektrik 2",lat:-7.80416910257988,lng:110.35100012203512,cat:"toko"},
+  {nama:"Toko bunga",lat:-7.804256574743745,lng:110.35099008909008,cat:"toko"},
+  {nama:"Toko mebel",lat:-7.804284406792057,lng:110.35118874140213,cat:"toko"},
+  {nama:"Hotel",lat:-7.804408656990157,lng:110.35117770516143,cat:"toko"},
+  {nama:"Toko pakaian 2",lat:-7.804967285412603,lng:110.35082253890225,cat:"toko"},
+  {nama:"Toko kerudung",lat:-7.805014997413147,lng:110.35106332958354,cat:"toko"},
+  {nama:"Toko parfum",lat:-7.805090541402882,lng:110.35105931640551,cat:"toko"},
+  {nama:"Toko peralatan listrik",lat:-7.805632457433993,lng:110.3509568625698,cat:"toko"},
+  {nama:"Toko koper",lat:-7.806017134679073,lng:110.35091974067149,cat:"toko"},
+  {nama:"Hotel 2",lat:-7.806098642473307,lng:110.35056658100154,cat:"toko"},
+  {nama:"Toko kaos",lat:-7.806204006186116,lng:110.35055052828915,cat:"toko"},
+  {nama:"Toko HP 2",lat:-7.806969383283147,lng:110.35064082479369,cat:"toko"},
+  {nama:"Hotel 3",lat:-7.807168182300166,lng:110.35072710812058,cat:"toko"},
+  {nama:"Hotel 4",lat:-7.807361017259873,lng:110.35067594009851,cat:"toko"},
+  {nama:"Toko oli",lat:-7.807281497701348,lng:110.35035889903284,cat:"toko"},
+];
+
+const infraData = [
+  {nama:"Drainase tertutup tanah (depan toko anantari)",lat:-7.804522360434492,lng:110.3509946137159,cat:"infra",detail:"Drainase di depan toko anantari wirobrajan tertutup tanah"},
+  {nama:"Drainase banyak sampah & dangkal (depan indomaret)",lat:-7.804436660436792,lng:110.35100936586514,cat:"infra",detail:"Drainase depan indomaret juga banyak sampah dan dangkal"},
+  {nama:"Drainase tersumbat (Jl. Ontosena, tugu kampung)",lat:-7.802265881926273,lng:110.35148424684972,cat:"infra",detail:"Drainase di depan tugu kampung wirobrajan jalan ontosena tersumbat"},
+  {nama:"Tiang listrik di tengah trotoar (SMA Muh. 7)",lat:-7.801186785748941,lng:110.35170209510996,cat:"infra",detail:"Tiang listrik di samping SMA Muhammadiyah 7 Yogyakarta di tengah trotoar + kabel berantakan di trotoar"},
+  {nama:"Pipa terbuka di trotoar (samping SMA Muh. 7)",lat:-7.801502228133155,lng:110.3516155659361,cat:"infra",detail:"Ada pipa yang terbuka dan menjalar di trotoar samping SMA Muhammadiyah 7 Yogyakarta"},
+  {nama:"Drainase tersumbat sampah organik (depan S.W.R.N custom)",lat:-7.803978338985276,lng:110.35121467977379,cat:"infra",detail:"Drainase tersumbat sampah organik (daun) di depan S.W.R.N custom"},
+];
+
+const allData = [...tokoData, ...infraData];
+let map, markers = [];
+
+function makeStyle(cat) {
+  return {
+    radius: cat === 'infra' ? 9 : 7,
+    fillColor: cat === 'infra' ? '#dc2626' : '#2563eb',
+    color: cat === 'infra' ? '#991b1b' : '#1d4ed8',
+    weight: 1.5,
+    opacity: 1,
+    fillOpacity: 0.85
+  };
+}
+
+function updateCount() {
+  const n = markers.filter(m => m._visible).length;
+  document.getElementById('count').textContent = `Menampilkan ${n} dari ${allData.length} titik`;
+}
+
+function filterMap(type, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active','active-red'));
+  btn.classList.add(type === 'infra' ? 'active-red' : 'active');
+  markers.forEach(m => {
+    const show = type === 'all' || m._cat === type;
+    m._visible = show;
+    if (show) m.addTo(map); else map.removeLayer(m);
+  });
+  // update list
+  renderList(type);
+  updateCount();
+}
+
+function flyTo(lat, lng) {
+  map.flyTo([lat, lng], 19, {animate: true, duration: 0.8});
+  const m = markers.find(mk => mk._lat === lat && mk._lng === lng);
+  if (m) m.openPopup();
+}
+
+function renderList(filter) {
+  const list = document.getElementById('list');
+  list.innerHTML = '';
+  allData.forEach(d => {
+    if (filter && filter !== 'all' && d.cat !== filter) return;
+    const el = document.createElement('div');
+    el.className = 'list-item';
+    el.innerHTML = `<span class="dot ${d.cat==='infra'?'dot-infra':'dot-toko'}"></span><span title="${d.nama}">${d.nama}</span>`;
+    el.onclick = () => flyTo(d.lat, d.lng);
+    list.appendChild(el);
+  });
+}
+
+window.onload = () => {
+  map = L.map('map').setView([-7.8035, 110.3512], 16);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19
+  }).addTo(map);
+
+  allData.forEach(d => {
+    const m = L.circleMarker([d.lat, d.lng], makeStyle(d.cat)).addTo(map);
+    const badge = d.cat === 'infra' ? '⚠️ Infrastruktur bermasalah' : '📍 Toko / Usaha';
+    const detail = d.detail ? `<br><span style="font-size:12px;color:#444">${d.detail}</span>` : '';
+    m.bindPopup(`
+      <b style="font-size:13px">${d.nama}</b><br>
+      <span style="font-size:11px;color:#777">${badge}</span>${detail}<br>
+      <span style="font-size:11px;color:#aaa">${d.lat.toFixed(6)}, ${d.lng.toFixed(6)}</span>
+    `);
+    m._cat = d.cat;
+    m._lat = d.lat;
+    m._lng = d.lng;
+    m._visible = true;
+    markers.push(m);
+  });
+
+  renderList('all');
+  updateCount();
+};
+</script>
+</body>
+</html>
